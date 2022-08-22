@@ -63,7 +63,7 @@ def make_annotation_array(annotation_file):
                 gene_end[ feature.attr["gene_id"] ].add(feature.iv.end_d)
 
 
-
+    print('finished getting annotations')
     return gene_annotate, exons, genes, gene_end
 
 

@@ -118,7 +118,7 @@ STAR \
 
 internal_R1_barcoded=$input_dir_internal/internal_barcoded_R1.fastq.gz
 internal_R2_barcoded=$input_dir_internal/internal_barcoded_R2.fastq.gz
-
+: '
 STAR \
         --genomeDir $reference \
 	--limitBAMsortRAM 50000000000 \
@@ -135,7 +135,7 @@ STAR \
 	--clip3pAdapterMMp 0.1 0.1 \
 	--outFileNamePrefix $outdir/internal_alignment/ \
 	--outSAMmultNmax 1
-
+'
 
 #Align 5prime reads as bulk
 
@@ -144,7 +144,7 @@ STAR \
 
 fiveprime_R1_barcoded=$input_dir_5prime/fiveprime_barcoded_R1.fastq.gz
 fiveprime_R2_barcoded=$input_dir_5prime/fiveprime_barcoded_R2.fastq.gz
-
+: '
 STAR \
         --genomeDir $reference \
 	--genomeLoad LoadAndRemove \
@@ -162,12 +162,12 @@ STAR \
         --clip3pAdapterMMp 0.1 0.1 \
         --outFileNamePrefix $outdir/5prime_alignment/ \
 	--outSAMmultNmax 1
-: '
+'
 
 
 #Add read group tags designating library type
 
-
+: '
 picard AddOrReplaceReadGroups \
 	I=$outdir/3prime_alignment/Aligned.sortedByCoord.out.bam \
 	O=$outdir/3prime_alignment/Aligned.sortedByCoord.tag.bam \
@@ -194,13 +194,13 @@ picard AddOrReplaceReadGroups \
         PL=ILLUMINA \
         PU=SLR \
         SM=GW21_1	 
-
+'
 
 
 ##merge BAM files and attach RG tag
 
 mkdir -p $outdir/merged/
-
+: '
 samtools merge $outdir/merged/merged.bam \
 	-f \
 	-c \
@@ -220,18 +220,22 @@ picard MergeSamFiles \
       USE_THREADING=true \
       CREATE_INDEX=true
 
-
+'
 
 ##add missing Gene alignents 
+TMPDIR=$outdir/merged/_tmp
 
+mkdir -p $TMPDIR
+
+export TMPDIR
 
 python /media/chang/HDD-10/derek/SLR/scripts/add_gene_tag.py \
 	$GTF_FILE \
 	$outdir/merged/merged.bam \
-	$outdir/merged/merged.gene_tagged.bam
+	12
 
 
-
+: '
 ##remove reads without gene tag
 
 picard FilterSamReads \
