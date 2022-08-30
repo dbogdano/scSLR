@@ -189,16 +189,13 @@ python /home/derek/analysis_10/SLR/scSLR/scripts/add_gene_tag_parallel.py \
 	12
 
 
+##copy barcodes from read names to SAM tag 
+
+samtools view -h $outdir/merged/merged.bam | awk '{if($1 ~ /^@/) print $0; else { for(i=1;i<=NF;i++){BAR=substr($1,1,18)} print $0,"TS:Z:"BAR}}' | samtools view -Sb - > $outdir/merged/merged.gene_tagged.sinto.bam
+
+
+
 : '
-
-
-##Add TellSeq barcodes as tags, from read names
-
-sinto nametotag \
-	-b $outdir/merged/merged.gene_tagged.bam \
-	-o $outdir/merged/marged.gene_tagged.sinto.bam \
-	-O b \
-	--tag TS
 
 samtools index \
 	$outdir/merged/merged.gene_tagged.sinto.bam \
