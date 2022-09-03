@@ -30,10 +30,10 @@ fiveprime_R1=$input_dir_5prime/*R1_001.fastq.gz
 fiveprime_R2=$input_dir_5prime/*R3_001.fastq.gz
 fiveprime_I1=$input_dir_5prime/*R2_001.fastq.gz
 
-
+: '
 
 #export compress_fastq_threads="8"
-: '
+
 ~/analysis_10/SLR/tools/single_cell_toolkit/barcode_10x_scatac_fastqs.sh \
 	 $threeprime_R1 \
          $threeprime_I1 \
@@ -63,7 +63,12 @@ fiveprime_I1=$input_dir_5prime/*R2_001.fastq.gz
          false \
 	 ":" \
          "igzip"
+
+
 '
+
+
+#bioawk -c fastx 'NR==FNR {split($4,a," ");{b[$1]=a[2]}; next} {print “@“substr(b[$1],12)":"$name””$comment”\n” $seq "\n+\n" $qual }' barcoded_temp.fastq temp.fastq | samtools view -Sb -@ 32 >
 
 
 #Align 3prime reads with 10X barcodes
@@ -71,8 +76,8 @@ fiveprime_I1=$input_dir_5prime/*R2_001.fastq.gz
 #threeprime_R1_barcoded=${threeprime_R1%.fastq.gz}.barcoded.fastq.gz
 #threeprime_R2_barcoded=${threeprime_R2%.fastq.gz}.barcoded.fastq.gz
 
-threeprime_R1_barcoded=$input_dir_3prime/threeprime_barcoded_R1.fastq.gz
-threeprime_R2_barcoded=$input_dir_3prime/threeprime_barcoded_R2.fastq.gz
+threeprime_R1_barcoded=$input_dir_3prime/threeprime_UMICollapse_R1.fastq.gz
+threeprime_R2_barcoded=$input_dir_3prime/threeprime_UMICollapse_R3.fastq.gz
 
 : '
 STAR \
@@ -111,8 +116,8 @@ STAR \
 #internal_R1_barcoded=${internal_R1%.fastq.gz}.barcoded.fastq.gz
 #internal_R2_barcoded=${internal_R2%.fastq.gz}.barcoded.fastq.gz
 
-internal_R1_barcoded=$input_dir_internal/internal_barcoded_R1.fastq.gz
-internal_R2_barcoded=$input_dir_internal/internal_barcoded_R2.fastq.gz
+internal_R1_barcoded=$input_dir_internal/internal_UMICollapse_R1.fastq.gz
+internal_R2_barcoded=$input_dir_internal/internal_UMICollapse_R3.fastq.gz
 : '
 STAR \
         --genomeDir $reference \
@@ -137,8 +142,8 @@ STAR \
 #fiveprime_R1_barcoded=${fiveprime_R1%.fastq.gz}.barcoded.fastq.gz
 #fiveprime_R2_barcoded=${fiveprime_R2%.fastq.gz}.barcoded.fastq.gz
 
-fiveprime_R1_barcoded=$input_dir_5prime/fiveprime_barcoded_R1.fastq.gz
-fiveprime_R2_barcoded=$input_dir_5prime/fiveprime_barcoded_R2.fastq.gz
+fiveprime_R1_barcoded=$input_dir_5prime/fiveprime_UMICollapse_R1.fastq.gz
+fiveprime_R2_barcoded=$input_dir_5prime/fiveprime_UMICollapse_R3.fastq.gz
 : '
 STAR \
         --genomeDir $reference \
@@ -157,13 +162,13 @@ STAR \
         --clip3pAdapterMMp 0.1 0.1 \
         --outFileNamePrefix $outdir/5prime_alignment/ \
 	--outSAMmultNmax 1
+
 '
-
-
+: '
 ##merge BAM files and attach RG tag
 
 mkdir -p $outdir/merged/
-: '
+
 samtools merge $outdir/merged/merged.bam \
 	-f \
 	-c \
@@ -186,16 +191,28 @@ export TMPDIR
 python /home/derek/analysis_10/SLR/scSLR/scripts/add_gene_tag_parallel.py \
 	$GTF_FILE \
 	$outdir/merged/merged.bam \
-	12
+	32
 
 
 ##copy barcodes from read names to SAM tag 
 
-samtools view -h $outdir/merged/merged.bam | awk '{if($1 ~ /^@/) print $0; else { for(i=1;i<=NF;i++){BAR=substr($1,1,18)} print $0,"TS:Z:"BAR}}' | samtools view -Sb - > $outdir/merged/merged.gene_tagged.sinto.bam
+samtools view -h -@ 32 $outdir/merged/merged.bam | bioawk -H -c sam '{{split($qname,a,":" )} print $0,"UG:i:"a[1] }' > $outdir/merged/merged.UG.bam
 
+
+
+
+
+
+
+#samtools view -h $outdir/merged/merged.bam | awk '{if($1 ~ /^@/) print $0; else { for(i=1;i<=NF;i++){BAR=substr($1,1,18)} print $0,"TS:Z:"BAR}}' | samtools view -Sb -@ 32 - > $outdir/merged/merged.gene_tagged.sinto.bam
+
+
+#samtools view -h $outdir/merged/merged.bam | awk '{if($1 ~ /^@/) print $0; else { for(i=1;i<=NF;i++){split($1,a,":")} print $0,"TS:Z:"a[1]}}' | samtools view -Sb -@ 32 - > $outdir/merged/merged.gene_tagged.sinto.bam
 
 
 : '
+
+
 
 samtools index \
 	$outdir/merged/merged.gene_tagged.sinto.bam \

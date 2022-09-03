@@ -4,17 +4,18 @@
 ### paramters for SLR pipeline to be source
 
 
-output_directory=/media/chang/HDD-7/derek//SLR/GeneFull__6/GW16_1/
+
+output_directory=/media/chang/HDD-7/derek/SLR/data/aggregate_data/orig_aggragate/fastqs/
 
 software=/home/derek/bin/
 
 
 
-input_dir_3prime=/media/chang/HDD-7/derek/SLR/GeneFull__6/GW16_1/3prime
+input_dir_3prime=/media/chang/HDD-7/derek/SLR/data/aggregate_data/orig_aggragate/fastqs/3prime
 
-input_dir_internal=/media/chang/HDD-7/derek/SLR/GeneFull__6/GW16_1/internal
+input_dir_internal=/media/chang/HDD-7/derek/SLR/data/aggregate_data/orig_aggragate/fastqs/internal
 
-input_dir_5prime=/media/chang/HDD-7/derek/SLR/GeneFull__6/GW16_1/5prime
+input_dir_5prime=/media/chang/HDD-7/derek/SLR/data/aggregate_data/orig_aggragate/fastqs/5prime
 
 #STAR=/home/derek/reference_cellranger/cellranger-7.0.0/lib/bin/STAR
 
