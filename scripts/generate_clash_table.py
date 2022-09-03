@@ -22,10 +22,10 @@ def generate_table(input_BAM):
 				
 				d.append(
 						{	
-							'bead': alnmt.optional_field('TS'),
-							'gene': alnmt.optional_field('GN'),
-							'UMI': alnmt.optional_field('UR'),	
-							'cell': alnmt.optional_field('CR'),
+							'gene_name': alnmt.optional_field('GN'),
+							'gene_ID': alnmt.optional_field('GX'),
+							'UMI': alnmt.optional_field('UB'),	
+							'cell': alnmt.optional_field('CB'),
 							'ID': alnmt.optioanl_field('UG')
 							
 						}

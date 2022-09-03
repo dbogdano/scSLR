@@ -19,8 +19,8 @@ def make_dicts(input_BAM):
             if alnmt.optional_field('RG') == '3prime':
 
 
-                Barcode=alnmt.optional_field('CR')
-                UMI=alnmt.optional_field('UR')
+                Barcode=alnmt.optional_field('CB')
+                UMI=alnmt.optional_field('UB')
                 ID=alnmt.optional_field('UG')
 
                 new_entry_Barcode = {ID:Barcode}
@@ -80,6 +80,9 @@ def UMI_share(input_BAM):
         
         
         
+
+
+
 
 if __name__ == "__main__":
     input_BAM = sys.argv[1]
