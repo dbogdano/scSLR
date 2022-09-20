@@ -1,0 +1,430 @@
+# Snakefile
+#
+# This Snakefile processes three directories of fastq files, corresponding to the three read types of scSLR-seq data
+#
+# Paths and global settings can be viewed and edited in the configfile ./config.yaml
+
+
+
+
+SAMPLES = ["3prime","internal","5prime"]
+
+CHROMS = ["chr"+str(c) for c in range(1, 23)] + ["chrX","chrY","chrM"]
+
+
+
+
+configfile: "./config.yaml"
+
+input_dir = config["input_dir"]   
+
+ref_dir = config["ref_dir"]   
+ 
+BC_WHITELIST = config["BC_WHITELIST"]    
+
+gtf_file = config["gtf_file"] 
+
+
+
+
+rule all:
+	input:
+		directory(input_dir + "solo_outs/")
+
+
+
+rule tag_fastqs_with_read_type:
+	input:
+		IN_FASTQS = input_dir + "{sample}/{sample}_R2_001.fastq.gz"
+	output:
+		OUT_FASTQS = input_dir + "{sample}/{sample}_tagged_R2_001.fastq.gz"
+	shell:
+		"""
+			sample = {wildcards.sample}
+			bioawk -c fastx -v r=$sample '{{print"@"$name":"r"\n"$comment"\n"$seq"\n+\n"$qual}}' {input.IN_FASTQS} > {output.OUT_FASTQS}
+
+		"""
+
+rule merge_fastqs:
+	input:
+		IN_FASTQS = expand(input_dir + "{sample}/{sample}_R2_001.fastq.gz",sample=SAMPLES)
+	output:
+		OUT_FASTQ = input_dir + "merged_R2_001.fastq.gz"
+	shell:
+		"""
+			cat {input.IN_FASTQS} > {output.OUT_FASTQ}
+
+			rm {input.IN_FASTQS}
+		"""
+
+
+rule UMICollapse:
+	input:
+		IN_FASTQ = input_dir + "merged_R2_001.fastq.gz"
+	output:
+		OUT_FASTQ = input_dir + "UMICollapse_merged_R2_001.fastq.gz"
+	params:
+		ALGO="adj",
+		EDITS="1"
+	shell:
+		"""
+			UMICollpase fastq \
+					--algo {params.ALGO} \
+					--tag \
+					--umi-seq "\t" \
+					-k {params.EDITS} \
+					-i {input.IN_FASTQ} \
+					-o {output.OUT_FASTQ}
+
+			rm {input.IN_FASTQ}
+
+		"""
+
+
+rule split_Fastq:
+	input: 
+		IN_FASTQ = input_dir + "UMICollapse_merged_R2_001.fastq.gz"
+	output:
+		OUT_FASTQS = expand(input_dir + "{sample}/{sample}_UMICollapse_R2_001.fastq.gz",sample=SAMPLES)
+	threads:36
+	shell:
+		"""
+			zcat {input.IN_FASTQ} | fgrep -A3 {wildcards.sample} | sed '/^--$/d' | pigz -p {threads} > {output.OUT_FASTQS}
+
+			rm {input.IN_FASTQ}
+
+		"""
+
+
+rule append_barcode_IDs:
+	input:
+		BARCODE_FASTQ = input_dir + "{sample}/{sample}_UMICollapse_R2.fastq",
+		IN_FASTQ = input_dir + "{sample}/{sample}_{read}_001.fastq.gz"
+	output:
+		OUT_FASTQ = input_dir + "{sample}/{sample}_UMICollapse_{read}.fastq.gz" 
+	threads:16
+	conda:
+		"SLR.yml"
+	shell:
+		"""
+		bioawk -c fastx 'NR==FNR {{split($4,a," ");{{b[$1]=a[2]}}; next}} {{print "@"substr(b[$1],12)":"$name""$comment"\\n" $seq "\\n+\\n" $qual }}' {input.BARCODE_FASTQ} {input.IN_FASTQ} | pigz -p {threads} > {output.OUT_FASTQ}
+		"""
+
+
+rule get_gene_alignments:
+	input:
+		R1 = input_dir + "{sample}/{sample}_UMICollapse_R1.fastq.gz",
+        R2 = input_dir + "{sample}/{sample}_UMICollapse_R3.fastq.gz",
+		REFDIR = ref_dir,
+		WHITELIST = BC_WHITELIST
+	output:
+		OUT_BAM= input_dir + "{sample}_alignment/Aligned.sortedByCoord.out.bam"	
+	params:
+		lib_spec = lambda wildcards: config["3PRIME"] if wildcards.sample == "3prime" else (config["INTERNAL"] if wildcards.sample == "internal" else config["5PRIME"]),
+		outprefix = input_dir + "{sample}_alignment/"
+	threads: 42
+	shell:
+		"""
+		ulimit -n 500000
+
+		STAR \
+			--runThreadN {threads} \
+			--limitBAMsortRAM 90000000000 \
+			--genomeDir {input.REFDIR} \
+			--readFilesIn {input.R2} {input.R1} \
+			--outSAMattrRGline ID:{wildcards.sample} \
+			--readFilesCommand zcat \
+			--outFilterMismatchNmax 20 \
+			--outFilterMismatchNoverLmax 0.1 \
+			--outSAMmultNmax -1 \
+			--outFileNamePrefix {params.outprefix} \
+			{params.lib_spec}	
+		
+		"""
+
+rule index_alignment_files:
+	input:
+		IN_BAMS = input_dir + "{sample}_alignment/Aligned.sortedByCoord.out.bam"
+	output:
+		OUT_BAMS = input_dir + "{sample}_alignment/Aligned.sortedByCoord.out.bam.bai"
+	conda:
+		"SLR.yml"
+	threads: 36
+	shell:
+		"""
+		samtools index -@ {threads} -o {output.OUT_BAMS} {input.IN_BAMS}	
+		"""
+
+rule merge_alignment_files:
+	input:
+		IN_BAMS = expand(input_dir + "{sample}_alignment/Aligned.sortedByCoord.out.bam",sample=SAMPLES)
+	output:
+		OUT_BAM = input_dir + "merged/merged.bam.unsorted"
+	conda:
+		 "SLR.yml"
+	threads: 36
+	shell:
+		"""
+		samtools merge \
+			{output.OUT_BAM} \
+			-f \
+ 			-c \
+			-p \
+			-@ {threads} \
+			{input.IN_BAMS}	
+		"""
+
+rule sort_alignment_files:
+	input:
+		IN_BAM = input_dir + "merged/merged.bam.unsorted"
+	output:
+		OUT_BAM = input_dir + "merged/merged.bam"
+	conda:
+		"SLR.yml"
+	threads: 24
+	shell:
+		"""
+		samtools sort -@ {threads} -m 4G {input.IN_BAM} > {output.OUT_BAM}
+
+		rm {output.OUT_BAM}.unsorted
+		"""
+
+rule split_bam_by_chromosome:
+	input:
+		IN_BAM = input_dir + "merged/merged.bam"
+	output:
+		OUT_BAM = expand(input_dir + "split/segment_{chrom}.bam",chrom=CHROMS)
+	conda:
+		"SLR.yml"
+	params:
+		PREFIX = input_dir + "split/segment_"
+	shell:
+		"""
+		bam splitChromosome --in {input.IN_BAM} --out {params.PREFIX}        
+		"""
+
+rule index_alignment_files_2:
+	input:
+		IN_BAMS = input_dir + "split/segment_{chrom}.bam"
+	output:
+		OUT_BAMS = input_dir + "split/segment_{chrom}.bam.bai"
+	conda:
+		"SLR.yml"
+	threads: 8
+	shell:
+		"""
+		samtools index -@ {threads} -o {output.OUT_BAMS} {input.IN_BAMS}
+		"""
+
+
+
+rule add_missing_gene_alignents:
+	input:	
+		GTF = gtf_file,
+		IN_BAM = input_dir + "split/segment_{chroms}.bam"
+	output:
+		input_dir + "split/{chroms}.gene_tagged.sam"
+	conda:  
+		"SLR.yml"
+	script:
+		"scripts/add_gene_tag.py"
+
+
+		
+
+rule add_UMICollapse_group_as_tag:
+	input:
+		IN_SAM = input_dir + "split/{chroms}.gene_tagged.sam"
+	output:
+		OUT_SAM = input_dir + "split/{chroms}.barcoded.sam"
+	conda:
+		"SLR.yml"
+	shell:
+		"""
+		bioawk -H -c sam '{{{{split($qname,a,":" )}} print $0,"UG:i:"a[1] }}' {input.IN_SAM} > {output.OUT_SAM}
+
+		rm {input.IN_SAM}
+
+		"""
+		
+rule sort_sam:
+	input:
+		IN_SAM = input_dir + "split/{chroms}.barcoded.sam"
+	output:
+		OUT_BAM = input_dir + "split/{chroms}.barcoded.sort.bam"
+	shell:
+		"""
+		samtools sort \
+			-n \
+			-@ {threads} \
+			-O BAM \
+			-o {output.OUT_BAM} \
+			{input.IN_SAM}
+
+		rm {input.IN_SAM}
+
+		"""
+
+	
+rule mark_collisions:
+	input:
+		In_BAM = input_dir + "split/{chroms}.barcoded.sort.bam"
+	output:
+		OUT_BAM = input_dir + "split/{chroms}.collisions_marked.sam"
+	conda: 
+		"SLR.yml"
+	script:
+		"scripts/generate_clash_table.py"
+
+
+rule remove_collisions:
+	input:
+		IN_SAM = input_dir + "split/{chroms}.collisions_marked.sam"
+	output: 
+		OUT_BAM = input_dir + "split/{chroms}.collisions_removed.bam"
+	shell:
+		"""
+		cat {input.IN_SAM} | grep -v "\<co:Z:True\>" | samtools view -Sb - > {output.OUT_BAM}
+		
+		rm {input.IN_SAM}
+
+		"""
+			
+	
+rule share_UMIs_and_CBs:
+	input:
+		IN_BAM = input_dir + "split/{chroms}.collisions_removed.bam"
+	output:
+		OUT_SAM = input_dir + "split/{chroms}.complete.sam"
+	conda:
+		"SLR.yml"
+	script:
+		"scripts/share_UMIs_UMICollapse.py"
+
+
+rule sort_index_sam:
+	input:
+		IN_SAM = input_dir +  "split/{chroms}.complete.sam"
+	output:
+		OUT_BAM = input_dir + "split/{chroms}.complete.bam"
+	threads: 8
+	shell:
+		"""
+		
+			samtools sort \
+						-@ {threads} \
+						-O BAM \
+						-o {output.OUT_BAM} \
+						{input.IN_SAM}
+
+			samtools index \
+						-@ {threads} \
+						{output.OUT_BAM}
+
+			rm {input.IN_SAM}
+		"""
+
+rule merge_barcoded_files:
+	input:
+		IN_BAMS = expand(input_dir + "split/{chroms}.complete.sam",chroms=CHROMS)
+	output:
+		OUT_BAM = input_dir + "merged/merged.temp.bam"
+	threads: 36
+	shell:
+		 """
+			samtools merge \
+						{output.OUT_BAM} \
+						-f \
+						-c \
+						-p \
+						-@ {threads} \
+						{input.IN_BAMS}
+			
+			rm {input.IN_BAMS}
+
+		"""
+
+rule sort_merged_bam:
+	input:
+		IN_BAM = input_dir + "merged/merged.temp.bam"
+	output:
+		OUT_BAM = input_dir + "merged/merged_complete.bam"
+	threads: 36
+	shell:
+		"""
+			samtools sort \
+						-@ {threads} \
+						-o {output.OUT_BAM} \
+						-m 2G \
+						{input.IN_BAM}
+
+			samtools index \
+						-@ {threads} \
+						{output.OUT_BAM}   
+
+			rm {input.IN_BAM}
+
+		"""
+
+rule generate_sjdbFile:
+	input:
+		expand(input_dir + "{sample}_alignment/SJ.out.tab",sample=SAMPLES)
+	output:
+		input_dir + "merged/merged_sjdb.tab"
+	shell:
+		"""
+			cat {input.IN_BAM} > {output.OUT_BAM}
+		"""
+
+
+rule star_count:
+	input:
+		IN_BAM = input_dir + "merged/merged_complete.bam",
+		SJDB = input_dir + "merged/merged_sjdb.tab"
+	output:
+		OUT_DIR = directory(input_dir + "solo_outs/")
+	params:
+		REFDIR = ref_dir,
+		WHITELIST = BC_WHITELIST
+	threads: 36
+	shell:
+		"""
+		STAR \
+			--readFilesIn {input.IN_BAM} \
+			--genomeDir {params.REFDIR} \
+			--sjdbFileChrStartEnd {input.SJDB}
+			--readFilesType SAM SE \
+			--readFilesCommand samtools view \
+			--runThreadN {threads} \
+			--soloType CB_UMI_Simple \
+			--soloCBwhitelist {params.WHITELIST} \
+			--soloBarcodeReadLength 0 \
+			--soloInputSAMattrBarcodeSeq CB UB \
+			--soloInputSAMattrBarcodeQual - \
+			--soloFeatures SJ GeneFull \
+			--soloMultiMappers EM \
+			--outSAMmode None \
+			--limitSjdbInsertNsj 50000000 \
+			--outFileNamePrefix {output.OUT_DIR}/ \
+			--outSJfilterReads All
+	
+		"""
+			
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+

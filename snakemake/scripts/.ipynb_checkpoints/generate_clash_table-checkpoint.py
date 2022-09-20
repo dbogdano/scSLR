@@ -22,57 +22,62 @@ def generate_table(input_BAM):
 				
 				d.append(
 						{	
+                            'gene_ID': alnmt.optional_field('GX'),
 							'gene_name': alnmt.optional_field('GN'),
-							'gene_ID': alnmt.optional_field('GX'),
 							'UMI': alnmt.optional_field('UB'),	
 							'cell': alnmt.optional_field('CB'),
-							'ID': alnmt.optioanl_field('UG')
-							
+							'bead_ID': alnmt.optional_field('UG')
 						}
 					)
 
 	collision_table = pd.DataFrame(d)	
 				
-	perID = collision_table.groupby('ID')['UMI'].nunique()
-				
+	perID = collision_table[collision_table['bead_ID'] != 0].groupby(['gene_ID','bead_ID'])['UMI'].nunique()
+    
 	collisions = perID[perID > 1].index
 
-	collision_table['collision'] = collision_table['ID'].isin(collisions)
+	collision_table['molecule_ID'] = list(zip(collision_table['gene_ID'],collision_table['bead_ID']))
+    
+    collision_table['collision'] = collision_table['molecule_ID'].isin(collisions)
 
-
-	collision_table.to_csv('collision_table.csv')
+	collision_table.to_csv(input_BAM+'_collision_table.csv')
 
 	return collision_table
 
 
 
 def mark_collisions(input_BAM, output_SAM):
-	
+##function takes a BAM file as input and outputs a SAM file with a collision attribute	
 	in_file = HTSeq.BAM_Reader(input_BAM)
 	
 	collision_table = generate_table(input_BAM) 
 	
-	collisionDict = dict(zip(collision_table['ID'],collision_table['collision']))
+	collisionDict = dict(zip(collision_table['molecule_ID'],collision_table['collision']))
 
 	out_file = str(output_SAM)
-	
-	for alnmt in in_file:
 		
-		with open(out_file, 'a' ) as new_sam:
+	with open(out_file, 'a' ) as new_sam:
 			
-			#SAM header#
-			print(in_bam.get_header_dict(), file=new_sam:)
+		#SAM header#
+		print(in_file.get_header_dict(),end='', file=new_sam)
+
+		for alnmt in in_file:
 
 			if alnmt.has_optional_field('UG'):
 				
 				if alnmt.optional_field('RG') == '3prime':
 
-					ID=alnmt.optional_field('UG')
+					ID = tuple([alnmt.optional_field('GX'),alnmt.optional_field('UG')])
 
 					collision = collisionDict.get(ID)
 					
-					line = alnmt.get_sam_line()+'t\co:Z:'+str(collision)
+					line = alnmt.get_sam_line()+'\t'+'co:Z:'+str(collision)
 
+					new_sam.write(line+'\n')
+				
+				else:
+					line = alnmt.get_sam_line()
+								
 					new_sam.write(line+'\n')
 
 			
@@ -90,7 +95,7 @@ if __name__ == "__main__":
 	input_BAM = snakemake.input[0]
 	output_SAM = snakemake.output[0]
 
-	UMI_share(input_BAM, output_SAM)
+	mark_collisions(input_BAM, output_SAM)
 
 
 
