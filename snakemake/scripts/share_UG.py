@@ -19,10 +19,12 @@ def share_UG_with_mate(input_SAM, output_SAM):
 	in_file = HTSeq.SAM_Reader(input_SAM)
 
 	out_file = str(output_SAM)
-
-	for alnmt, pair in next_funct(in_file):
-
-		with open(out_file, 'a' ) as new_sam:
+    
+    with open(out_file, 'a' ) as new_sam:
+        
+        print(in_file.get_header_dict(), end='', file=new_sam)
+    
+        for alnmt, pair in next_funct(in_file):
 
 			if alnmt.has_optional_field('UG'):
 
@@ -58,4 +60,3 @@ if __name__ == "__main__":
 	output_SAM = snakemake.output[0]
 	
 	share_UG_with_mate(input_SAM, output_SAM)
-	

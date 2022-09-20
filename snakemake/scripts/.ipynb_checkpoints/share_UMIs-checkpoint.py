@@ -1,4 +1,5 @@
-##script takes in as input a BAM file, reads the UMI and UMI-tools group unique ID for 3prime marked reads in the BAM file, creates a dictionary of these values, and shares the UMI values between internal and 5prime reads with the same UMI-tools group unique ID.
+##script takes in as input a BAM file, reads the UMI and UMI-tools group unique ID for 3prime marked reads in the BAM file,
+##creates a dictionary of these values, and shares the UMI values between internal and 5prime reads with the same UMI-tools group unique ID.
 
 import sys
 import HTSeq
@@ -19,8 +20,8 @@ def make_dicts(input_BAM):
             if alnmt.optional_field('RG') == '3prime':
 
 
-                Barcode=alnmt.optional_field('CB')
-                UMI=alnmt.optional_field('UB')
+                Barcode=alnmt.optional_field('CR')
+                UMI=alnmt.optional_field('UR')
                 ID=alnmt.optional_field('UG')
 
                 new_entry_Barcode = {ID:Barcode}
@@ -35,20 +36,17 @@ def make_dicts(input_BAM):
 
 
 
-def UMI_share(input_BAM):
+def UMI_share(input_BAM, output_SAM):
     
     in_file = HTSeq.BAM_Reader(input_BAM)
     
     Barcode_dict, UMI_dict = make_dicts(input_BAM)
     
-    out_file = Path(input_BAM).stem + '_tag.sam'
-    
+    out_file = str(output_SAM)
     
     for alnmt in in_file:
         
         with open(out_file, 'a' ) as new_sam:
-            
-            print(in_file.get_header_dict(), end='', file=new_sam)
             
             if alnmt.has_optional_field('UG'):
                 
@@ -81,10 +79,14 @@ def UMI_share(input_BAM):
         
         
 
-
-
-
 if __name__ == "__main__":
-    input_BAM = sys.argv[1]
-    
-    UMI_share(input_BAM)
+    #input_BAM = sys.argv[1]
+    #output_SAM = sys.argv[2]
+    input_BAM = snakemake.input[0]
+    output_SAM = snakemake.output[0]
+
+    UMI_share(input_BAM, output_SAM)
+
+
+
+
