@@ -1,6 +1,6 @@
 #config file for scSLR-seq snakemake pipeline
 
-input_dir: "/home/derek/analysis_7/SLR/data/aggregate_data/orig_aggragate/fastqs/"
+input_dir: "./demo_data/"
 
 ref_dir: "/home/derek/analysis_2/reference/human_hp3_reference/star"
 
