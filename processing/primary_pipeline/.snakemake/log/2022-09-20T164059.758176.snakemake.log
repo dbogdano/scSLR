@@ -1,0 +1,2 @@
+SyntaxError in line 48 of /media/chang/HDD-10/derek/SLR/scSLR/snakemake/Snakefile:
+Expected name or colon after rule or checkpoint keyword. (Snakefile, line 48)
