@@ -1,0 +1,47 @@
+#config file for scSLR-seq snakemake pipeline
+
+input_dir: "./demo_data/"
+
+ref_dir: "/home/derek/analysis_2/reference/human_hp3_reference/star"
+
+BC_WHITELIST: "/media/chang/HDD-1/reference_cellranger/cellranger-6.1.2/lib/python/cellranger/barcodes/3M-february-2018.txt"
+
+gtf_file: "/home/derek/analysis_2/reference/human_hp3_reference/genes/genes.gtf"
+
+
+
+
+
+##separate STAR aligner settings for the different read types
+
+3PRIME: "--soloType CB_UMI_Simple \
+		--outSAMtype BAM SortedByCoordinate \	
+		--soloCBstart 1 \
+		--soloCBlen 16 \
+		--soloUMIstart 17 \
+		--soloUMIlen 12 \
+		--soloBarcodeReadLength 0 \
+		--soloCBwhitelist /media/chang/HDD-1/reference_cellranger/cellranger-6.1.2/lib/python/cellranger/barcodes/3M-february-2018.txt \
+		--outSAMattributes GX GN CB CR CY UB UR UY \
+		--outSAMunmapped Within \
+		--soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts \
+		--soloUMIdedup 1MM_CR \
+		--soloFeatures GeneFull \
+		--soloMultiMappers Unique \
+		--soloCellFilter EmptyDrops_CR \
+		--soloUMIfiltering MultiGeneUMI_CR \
+		--clip3pAdapterSeq AAAAAAAAAAAAAAAAAAAA \
+		--limitSjdbInsertNsj 500000000000"
+
+INTERNAL: "--outSAMattributes GX GN \
+		--outSAMtype BAM SortedByCoordinate \
+        --outSAMunmapped Within KeepPairs \
+        --clip3pAdapterSeq TGGGCCGGTGCAGTTAATGTAGGGAAAGAGTGT TGAAGCGGCGCACGAAAAACGCGAAAGCGTTTCAC \
+        --clip3pAdapterMMp 0.1 0.1"
+
+5PRIME: "--outSAMattributes GX GN \
+		--outSAMtype BAM SortedByCoordinate \
+		--outSAMunmapped Within KeepPairs \
+		--clip3pAdapterSeq AAGCAGTGGTATCAACGCAGAGTACATGGG TGAAGCGGCGCACGAAAAACGCGAAAGCGTTTCAC \
+		--clip3pAdapterMMp 0.1 0.1"
+
