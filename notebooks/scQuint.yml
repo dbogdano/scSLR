@@ -351,7 +351,7 @@ dependencies:
       - pytest==7.2.0
       - reretry==0.11.1
       - scipy==1.9.3
-      - scquint==0.3.3
+#      - scquint==0.3.3
       - simplejson==3.18.0
       - smart-open==6.2.0
       - smmap==5.0.0
