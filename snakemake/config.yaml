@@ -1,14 +1,14 @@
 #config file for scSLR-seq snakemake pipeline
 
-input_dir: "./demo_data/"
+input_dir: "/c4/home/derek/data1/derek/data_scSLR/PBMC_fastqs/sample_1"
 
-ref_dir: "/home/derek/analysis_2/reference/human_hp3_reference/star"
+ref_dir: "/c4/home/derek/data1/derek/reference/human_hp3_reference/star"
 
-BC_WHITELIST: "/media/chang/HDD-1/reference_cellranger/cellranger-6.1.2/lib/python/cellranger/barcodes/3M-february-2018.txt"
+BC_WHITELIST: "/c4/home/derek/bin/cellranger-7.1.0/lib/python/cellranger/barcodes/3M-february-2018.txt"
 
-gtf_file: "/home/derek/analysis_2/reference/human_hp3_reference/genes/genes.gtf"
+gtf_file: "/c4/home/derek/data1/derek/reference/human_hp3_reference/genes/genes.gtf"
 
-
+CDNA_POLARITY:   "5prime"
 
 
 
@@ -21,7 +21,7 @@ gtf_file: "/home/derek/analysis_2/reference/human_hp3_reference/genes/genes.gtf"
 		--soloUMIstart 17 \
 		--soloUMIlen 12 \
 		--soloBarcodeReadLength 0 \
-		--soloCBwhitelist /media/chang/HDD-1/reference_cellranger/cellranger-6.1.2/lib/python/cellranger/barcodes/3M-february-2018.txt \
+		--soloCBwhitelist /c4/home/derek/bin/cellranger-7.1.0/lib/python/cellranger/barcodes/3M-february-2018.txt \
 		--outSAMattributes GX GN CB CR CY UB UR UY \
 		--outSAMunmapped Within \
 		--soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts \
@@ -34,7 +34,7 @@ gtf_file: "/home/derek/analysis_2/reference/human_hp3_reference/genes/genes.gtf"
 		--limitSjdbInsertNsj 500000000000"
 
 INTERNAL: "--outSAMattributes GX GN \
-		--outSAMtype BAM SortedByCoordinate \
+	--outSAMtype BAM SortedByCoordinate \
         --outSAMunmapped Within KeepPairs \
         --clip3pAdapterSeq TGGGCCGGTGCAGTTAATGTAGGGAAAGAGTGT TGAAGCGGCGCACGAAAAACGCGAAAGCGTTTCAC \
         --clip3pAdapterMMp 0.1 0.1"
@@ -44,4 +44,31 @@ INTERNAL: "--outSAMattributes GX GN \
 		--outSAMunmapped Within KeepPairs \
 		--clip3pAdapterSeq AAGCAGTGGTATCAACGCAGAGTACATGGG TGAAGCGGCGCACGAAAAACGCGAAAGCGTTTCAC \
 		--clip3pAdapterMMp 0.1 0.1"
+
+
+5PRIME_paired:  "--soloType CB_UMI_Simple \
+        --outSAMtype BAM SortedByCoordinate \
+        --soloCBstart 1 \
+        --soloCBlen 16 \
+        --soloUMIstart 17 \
+        --soloUMIlen 10 \
+        --soloBarcodeReadLength 0 \
+        --soloCBwhitelist /c4/home/derek/bin/cellranger-7.1.0/lib/python/cellranger/barcodes/737K-august-2016.txt \
+        --outSAMattributes GX GN CB CR CY UB UR UY \
+        --outSAMunmapped Within \
+        --soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts \
+        --soloUMIdedup 1MM_CR \
+        --soloFeatures GeneFull \
+        --soloMultiMappers Unique \
+        --soloCellFilter EmptyDrops_CR \
+        --soloUMIfiltering MultiGeneUMI_CR \
+        --clip3pAdapterSeq CCCATATAAGAAA \
+        --clip3pAdapterMMp 0.1 \
+        --limitSjdbInsertNsj 500000000000"
+
+3PRIME_paired: "--outSAMattributes GX GN \
+        --outSAMtype BAM SortedByCoordinate \
+        --outSAMunmapped Within KeepPairs \
+        --clip3pAdapterSeq AAAAAAAAAAAAAAAAAAAA TGAAGCGGCGCACGAAAAACGCGAAAGCGTTTCAC \
+        --clip3pAdapterMMp 0.1 0.1"
 

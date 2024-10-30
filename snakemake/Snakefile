@@ -65,7 +65,7 @@ rule UMICollapse:
 		OUT_FASTQ = input_dir + "UMICollapse_merged_R2_001.fastq.gz"
 	params:
 		ALGO="adj",
-		EDITS="1"
+		EDITS="0"
 	shell:
 		"""
 			~/bin/UMICollapse/umicollapse fastq \
@@ -121,7 +121,7 @@ rule get_gene_alignments:
 		OUT_BAM = input_dir + "{sample}_alignment/Aligned.sortedByCoord.out.bam",
 		OUT_SJDB = input_dir + "{sample}_alignment/SJ.out.tab"
 	params:
-		lib_spec = lambda wildcards: config["3PRIME"] if wildcards.sample == "3prime" else (config["INTERNAL"] if wildcards.sample == "internal" else config["5PRIME"]),
+		lib_spec = lambda wildcards: config["3PRIME_paired"] if wildcards.sample == "3prime" else (config["INTERNAL"] if wildcards.sample == "internal" else config["5PRIME_paired"]),
 		outprefix = input_dir + "{sample}_alignment/"
 	threads: 42
 	shell:
